@@ -84,77 +84,83 @@ $discord->on('ready', function ($discord) {
         if (0 === strpos($cmd, "!add") || 0 === strpos($cmd, "!a")) {
             if (!isset($list[$message->author->username])) {
                 /* Get the Steam ID Of the User */
-                $getSteam = $conn->prepare("SELECT COUNT(u_id) AS rowCount, u_steam FROM users WHERE u_discord = ?");
-                $getSteam->execute(array($message->author->id));
-                $getData = $getSteam->fetch();
+                if ($bot['qlstats'] == true) {
+                    $getSteam = $conn->prepare("SELECT COUNT(u_id) AS rowCount, u_steam FROM users WHERE u_discord = ?");
+                    $getSteam->execute(array($message->author->id));
+                    $getData = $getSteam->fetch();
 
-                if ($getData['rowCount'] <= 0 && $bot['qlstats'] == true) $message->reply("You do not have an account, please use **!create <steam64id>**!");
-                else {
+                    if ($getData['rowCount'] <= 0) $message->reply("You do not have an account, please use **!create <steam64id>**!");
+                    else {
 
+                        $list[$message->author->username]['name']           = $message->author->username;
+                        $list[$message->author->username]['discord']        = $message->author;
+
+                        if ($bot['qlstats'] == true) {
+                            $url = "http://qlstats.net/elo/" . $getData['u_steam'] . "";
+                            $result = file_get_contents($url);
+                            $stats = json_decode($result, true);
+
+                            $duel = $stats['players']['0']['duel']['elo'];
+                            $tdm = $stats['players']['0']['tdm']['elo'];
+                            $ctf = $stats['players']['0']['ctf']['elo'];
+                            $ca = $stats['players']['0']['ca']['elo'];
+                            $ffa = $stats['players']['0']['ffa']['elo'];
+                            $ft = $stats['players']['0']['ft']['elo'];
+
+                            $list[$message->author->username]['elo']['duel']    = $duel;
+                            $list[$message->author->username]['elo']['tdm']     = $tdm;
+                            $list[$message->author->username]['elo']['ctf']     = $ctf;
+                            $list[$message->author->username]['elo']['ca']      = $ca;
+                            $list[$message->author->username]['elo']['ffa']     = $ffa;
+                            $list[$message->author->username]['elo']['ft']      = $ft;
+                        }
+
+                    }
+                } else { 
                     $list[$message->author->username]['name']           = $message->author->username;
                     $list[$message->author->username]['discord']        = $message->author;
+                }
 
+
+                if (count($list) == $bot['maxPlayers']) {
+                    $officialDiscord = FormatTeams($list, "discord", $bot['mode'], $bot['qlstats']);
                     if ($bot['qlstats'] == true) {
-                        $url = "http://qlstats.net/elo/" . $getData['u_steam'] . "";
-                        $result = file_get_contents($url);
-                        $stats = json_decode($result, true);
-
-                        $duel = $stats['players']['0']['duel']['elo'];
-                        $tdm = $stats['players']['0']['tdm']['elo'];
-                        $ctf = $stats['players']['0']['ctf']['elo'];
-                        $ca = $stats['players']['0']['ca']['elo'];
-                        $ffa = $stats['players']['0']['ffa']['elo'];
-                        $ft = $stats['players']['0']['ft']['elo'];
-
-                        $list[$message->author->username]['elo']['duel']    = $duel;
-                        $list[$message->author->username]['elo']['tdm']     = $tdm;
-                        $list[$message->author->username]['elo']['ctf']     = $ctf;
-                        $list[$message->author->username]['elo']['ca']      = $ca;
-                        $list[$message->author->username]['elo']['ffa']     = $ffa;
-                        $list[$message->author->username]['elo']['ft']      = $ft;
-                    }
-
-                    if (count($list) == $bot['maxPlayers']) {
-                        $officialDiscord = FormatTeams($list, "discord", $bot['mode'], $bot['qlstats']);
-                        if ($bot['qlstats'] == true) {
-                            $message->sendMessageAll("
+                        $message->sendMessageAll("
 The pickup has started!
 " . $officialDiscord . "
 /connect " . $bot['server'] . "!
-                            ");
-                            $list = array();
-                        } else {
-                            /* Just do Standard Listing */
-                            foreach ($list as $value) {
-                                if ($bot['qlstats'])
-                                    $formatWho .= $prefixWho . '' . $value['discord'] . ' (' . $value['elo'][$bot['mode']] . ')';
-                                else
-                                    $formatWho .= $prefixWho . '' . $value['discord'];
-                                $prefixWho = ', ';
-                            }
+                        ");
+                        $list = array();
+                    } else {
+                        /* Just do Standard Listing */
+                        foreach ($list as $value) {
+                            if ($bot['qlstats'])
+                                $formatWho .= $prefixWho . '' . $value['discord'] . ' (' . $value['elo'][$bot['mode']] . ')';
+                            else
+                                $formatWho .= $prefixWho . '' . $value['discord'];
+                            $prefixWho = ', ';
+                        }
 
-                            /* Find 2 people that have the most reputation
-                            $getMostReputation = $conn->prepare("SELECT u_positive, u_negative FROM users WHERE u_discord = ?");
-                            $getMostReputation->execute(array($message->author->id));
-                            */
+                        /* Find 2 people that have the most reputation
+                        $getMostReputation = $conn->prepare("SELECT u_positive, u_negative FROM users WHERE u_discord = ?");
+                        $getMostReputation->execute(array($message->author->id));
+                        */
 
-                            $message->sendMessageAll("
+                        $message->sendMessageAll("
 The pickup has started, unfortunately due to QLStats being down we will be assigning captains for this PUG!
 
-    **Players:** " . $formatWho . "
+**Players:** " . $formatWho . "
 
 /connect " . $bot['server'] . "!
-                            ");
-                            $list = array();
-                        }
-                    } else { $message->sendMessageAll($message->author . " has been added to the queue! **" . count($list) . "/" . $bot['maxPlayers'] . "**"); }
+                        ");
+                        $list = array();
+                    }
+                } else { $message->sendMessageAll($message->author . " has been added to the queue! **" . count($list) . "/" . $bot['maxPlayers'] . "**"); }
 
-                }
-                
             } else {
                 $message->reply("You have already been added to the queue!");
             }
-        } 
+        }
 
         if (0 === strpos($cmd, "!remove") || 0 === strpos($cmd, "!r")) {
             if (isset($list[$message->author->username])) {
@@ -167,12 +173,11 @@ The pickup has started, unfortunately due to QLStats being down we will be assig
         } 
 
         if ($cmd == "!who" || $cmd == "!w") {
-            foreach ($list as $value) {
-                $prefixWho = "";
-                $formatWho = $prefixWho;
+
+            foreach ($list as $value) { 
                 if ($bot['qlstats'])
                     $formatWho .= $prefixWho . '' . $value['name'] . ' (' . $value['elo'][$bot['mode']] . ')';
-                else
+                else 
                     $formatWho .= $prefixWho . '' . $value['name'];
                 $prefixWho = ', ';
             }
@@ -182,9 +187,12 @@ The pickup has started, unfortunately due to QLStats being down we will be assig
             if (empty($list))
                 $message->reply("There is currently no one added, be the first by typing **!a(dd)**.");
             else {
-                $message->reply("There is currently **" . count($list) . "/" . $bot['maxPlayers'] . "** added! 
-                    " . $whoTeams
-                );
+                if ($bot['qlstats'])
+                    $message->reply("There is currently **" . count($list) . "/" . $bot['maxPlayers'] . "** added! 
+                        " . $whoTeams
+                    );
+                else
+                    $message->reply("There is currently **" . count($list) . "/" . $bot['maxPlayers'] . "** added! " . $formatWho);
             }
         }
 
@@ -213,26 +221,12 @@ The pickup has started, unfortunately due to QLStats being down we will be assig
             $message->reply("
         The current version of this bot is **v" . $bot['version'] . "**
 
-        [CHANGELOG 10/21/2016 - 2:00 PM PDT]
-         - Fixed bug with !server not showing IP.
-         - Fixed bug with !w(ho) not showing the full list of who is added.
-         - Added Freeze Tag ELO to !elo & !mode. (Now STFU @ph1ldo)
-         - Added experimental code to !w(ho) so it returns a list of Red / Blue team.
+        [CHANGELOG 10/26/2016 - 11:00 PM PDT]
+         - Fixed bug where !a(dd)ing with QLStats off would not work correctly.
+         - Logging Bot & DB errors for further testing on why the bot randomly turns off.
+         - Updated the !create command.
+         - Minor bugs
 
-        [CHANGELOG 10/18/2016 - 11:00 PM PDT]
-        - Added admin commands (!server & !qlstats).
-        - Made !elo not usable if QLStats is turned off.
-        - Made !add not add ELO if QLStats is turned off.
-        - When a PUG starts, if QLStats is turned off it will assign captains instead of making teams.
-        - Made it so all commands are required to type at the beginning, and cannot be placed in mid-sentences.
-
-        [CHANGELOG 10/17/2016 - 11:00 PM PDT]
-        - Made !w(ho) not mention each user but instead of just show the users names.
-
-        [CHANGELOG 10/15/2016 - 6:55 PM PDT]
-        - Fixed bug where the server IP was defaulted to 255.255.255.255:24960
-        - Changed max list from 2 to 8.
-        - Added command !v(ersion).
             ");
         }
 
@@ -281,7 +275,8 @@ The pickup has started, unfortunately due to QLStats being down we will be assig
         if (0 === strpos($cmd, "!create")) {
             $var = explode(' ', $cmd);
 
-            if (!isset($var[1])) $message->reply("**SYNTAX:** !create <steamid64>. Please insert your Steam ID after the command! https://steamid.io/");
+            if ($bot['qlstats'] == false) $message->reply("QLStats is enabled, therefore !create is disabled!");
+            else if (!isset($var[1])) $message->reply("**SYNTAX:** !create <steamid64>. Please insert your Steam ID after the command! https://steamid.io/");
             else if (isset($var[1]) && strlen($var[1]) < 16) $message->reply("The Steam64 ID you have entered is invalid, please try again!");
             else {
 
@@ -297,12 +292,14 @@ The pickup has started, unfortunately due to QLStats being down we will be assig
 
                     if ($addAccount->rowCount() > 0)
                         $message->reply("
-        Welcome! You have successfully registered yourself for our PUGs and may use !a(dd). A few rules before you begin however!
-        1. If you inserted a false / invalid Steam ID, please contact GNiK#8129 otherwise you are at risk for getting banned.
-        2. Any type of aliasing will result in all of your Discord accounts being banned from our system.
-        If you want to edit your settings for your Discord account, please refer to here.
-        http://phyrgg.com/discordbot/
-        Thanks!
+        Welcome to " . $bot['name'] . "!
+            You have successfully registered and can now participate in PUG's using !a(dd). Please make sure to check out !h(elp) for further assistance.
+
+        Rules
+            1. If you inserted a false / invalid Steam ID, please contact GNiK#8129 otherwise you are at risk for getting banned.
+            2. Any type of aliasing will result in all of your Discord accounts being banned from our system.
+
+        This bot is open-sourced and can be found here: https://github.com/CameronCT/QLStats-Discord
                         ");
                 }
             }
