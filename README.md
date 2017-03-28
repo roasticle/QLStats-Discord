@@ -1,5 +1,3 @@
-**NOTE: WORK IN PROGRESS! INCOMPLETE!**
-
 # QLStats-Discord Minimal
 This is a fork of QLStats-Discord. I have ripped out the pickup group stuff since I was interested just in the ELO functionality.
 
