@@ -10,7 +10,7 @@ This is a fork of QLStats-Discord. I have ripped out the pickup group stuff sinc
 - Create a DB in MySQL called "qlstats-bot". Create a table called "users" with 4 fields: id (int autoincrement primary), u_discord (text), u_name (text), u_steam (text).
 - Create a folder under /home/yourusername, let's say "qlstats-bot" and enter it
 - Type: sudo apt install composer
-- sudo composer require team-reflex/discord-php
+- composer require team-reflex/discord-php dev-develop
 - sudo wget https://raw.githubusercontent.com/roasticle/QLStats-Discord-Minimal/master/bot.php 
 - edit bot.php and set your configuration options at the top of the file
 - sudo php bot.php
